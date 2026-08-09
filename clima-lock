@@ -31,19 +31,31 @@ def hay_internet():
     except requests.RequestException:
         return False
 
-def guardar(ciudad):
+def guardar(ciudad, lat=None, lon=None):
     c=configparser.ConfigParser()
-    c["General"]={"ciudad":ciudad}
+    datos={"ciudad":ciudad}
+    if lat is not None and lon is not None:
+        datos["lat"]=str(lat)
+        datos["lon"]=str(lon)
+    c["General"]=datos
     with open(CFG,"w") as f:c.write(f)
 
 def leer():
-    if not CFG.exists(): return None
+    """Devuelve (ciudad, lat, lon). lat/lon son None si el config es
+    de una versión antigua que solo guardaba el nombre (se resuelve
+    entonces por geocodificación, como antes)."""
+    if not CFG.exists(): return None, None, None
     c=configparser.ConfigParser(); c.read(CFG)
-    return c.get("General","ciudad",fallback=None)
+    ciudad = c.get("General","ciudad",fallback=None)
+    lat = c.get("General","lat",fallback=None)
+    lon = c.get("General","lon",fallback=None)
+    return ciudad, (float(lat) if lat else None), (float(lon) if lon else None)
 
-def geocode(nombre):
+def geocode_lista(nombre):
+    """Devuelve la lista completa de coincidencias de la API (hasta 10),
+    para poder mostrarlas y elegir cuando hay varias con el mismo nombre."""
     u="https://geocoding-api.open-meteo.com/v1/search"
-    params={"name":nombre,"count":5,"language":"es","format":"json"}
+    params={"name":nombre,"count":10,"language":"es","format":"json"}
     j=requests.get(u,params=params,timeout=10).json()
     resultados=j.get("results")
     if not resultados and "," in nombre:
@@ -52,6 +64,10 @@ def geocode(nombre):
         params["name"]=nombre.split(",")[0].strip()
         j=requests.get(u,params=params,timeout=10).json()
         resultados=j.get("results")
+    return resultados or []
+
+def geocode(nombre):
+    resultados = geocode_lista(nombre)
     if not resultados:
         print(f'No se encontró "{nombre}". Prueba solo con el nombre del pueblo/ciudad, sin provincia.')
         sys.exit(1)
@@ -245,7 +261,7 @@ if __name__=="__main__":
             except ValueError:
                 print("El intervalo debe ser un número de minutos, ej: --install 15")
                 sys.exit(1)
-        if not leer():
+        if not leer()[0]:
             print('Aviso: no has configurado ciudad todavía. Ejecuta primero:')
             print('  python3 clima_lock.py --ciudad "Tu Ciudad"')
         instalar(intervalo)
@@ -256,18 +272,49 @@ if __name__=="__main__":
         sys.exit(0)
 
     if len(args)>=2 and args[0]=="--ciudad":
-        guardar(" ".join(args[1:]))
-        print("Ciudad guardada.")
+        nombre_buscado = " ".join(args[1:])
+        if not hay_internet():
+            print("Sin conexión a internet, no se puede buscar la ciudad ahora mismo.")
+            sys.exit(1)
+        resultados = geocode_lista(nombre_buscado)
+        if not resultados:
+            print(f'No se encontró "{nombre_buscado}". Prueba solo con el nombre del pueblo/ciudad, sin provincia.')
+            sys.exit(1)
+        if len(resultados) == 1:
+            elegido = resultados[0]
+        else:
+            print(f'Hay {len(resultados)} lugares llamados "{nombre_buscado}":')
+            for i, r in enumerate(resultados):
+                provincia = r.get("admin1","")
+                pais = r.get("country","")
+                extra = f" — {provincia}, {pais}" if provincia or pais else ""
+                print(f'  [{i}] {r["name"]}{extra}  (lat {r["latitude"]}, lon {r["longitude"]})')
+            while True:
+                sel = input("Escribe el número del que es el tuyo: ").strip()
+                if sel.isdigit() and 0 <= int(sel) < len(resultados):
+                    elegido = resultados[int(sel)]
+                    break
+                print("Número no válido, prueba otra vez.")
+        guardar(elegido["name"], elegido["latitude"], elegido["longitude"])
+        provincia = elegido.get("admin1","")
+        pais = elegido.get("country","")
+        print(f'Ciudad guardada: {elegido["name"]} ({provincia}, {pais})')
         sys.exit(0)
 
-    ciudad=leer()
+    ciudad, lat, lon = leer()
     if not ciudad:
         print('Primero ejecuta: python3 clima_lock.py --ciudad "Tu Ciudad"')
         sys.exit(1)
     if not hay_internet():
         print("Sin conexión a internet, se deja el mensaje actual sin cambios.")
         sys.exit(0)
-    lat,lon,nombre=geocode(ciudad)
+    if lat is None or lon is None:
+        # Config antiguo (de antes de guardar coordenadas): resuelve por
+        # nombre como hasta ahora. Vuelve a ejecutar --ciudad para fijar
+        # las coordenadas exactas y evitar ambigüedad en el futuro.
+        lat,lon,nombre=geocode(ciudad)
+    else:
+        nombre=ciudad
     txt=mensaje(nombre,clima(lat,lon))
     print(txt)
     lock(txt)
