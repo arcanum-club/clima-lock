@@ -1,0 +1,8 @@
+[Unit]
+Description=Actualiza mensaje de clima en pantalla de bloqueo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/bin/clima-lock
