@@ -10,7 +10,7 @@ La actualización se realiza mediante un temporizador `systemd --user` y los dat
          25°C ☁️
 
 Villanueva de la Serena
-★ ★ ★ ★ ★ ★ ★ ★ ★ ★ 
+★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★  ★ 
 09 dom ago 24 / 31 °C 🌤️
 10 lun ago 24 / 29 °C ☁️
 11 mar ago 24 / 29 °C 🌤️
