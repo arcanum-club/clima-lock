@@ -1,26 +1,38 @@
 # clima-lock
 
-Muestra el tiempo actual y la previsión de 4 días en el mensaje de la pantalla de bloqueo de **Cinnamon** (Linux Mint), actualizado solo mediante un temporizador de `systemd --user`. Datos de [Open-Meteo](https://open-meteo.com/) (sin API key).
+Herramienta para **Cinnamon (Linux Mint)** que muestra la información meteorológica actual y la previsión de los próximos 4 días directamente en el mensaje de la pantalla de bloqueo.
 
-```
-              25°C ☁️
+La actualización se realiza mediante un temporizador `systemd --user` y los datos meteorológicos se obtienen de **Open-Meteo**, sin necesidad de una API key.
 
-     Villanueva de la Serena
-★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★
-09    dom    ago    24 / 31 °C 🌤️
-10    lun    ago    24 / 29 °C ☁️
-11    mar    ago    24 / 29 °C 🌤️
-12    mié    ago    24 / 29 °C ☁️
+## Ejemplo de salida
+
+```text
+         25°C ☁️
+
+Villanueva de la Serena
+★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
+09 dom ago 24 / 31 °C 🌤️
+10 lun ago 24 / 29 °C ☁️
+11 mar ago 24 / 29 °C 🌤️
+12 mié ago 24 / 29 °C ☁️
 ```
 
 ## Instalación
 
+Instala el paquete Debian con:
+
 ```bash
 sudo dpkg -i clima-lock_<version>.deb
-sudo apt --fix-broken install   # solo si faltan dependencias
 ```
 
-Si ya tenías el temporizador instalado y actualizas a una versión nueva, recárgalo para que el cambio se aplique ya:
+Si faltan dependencias, puedes corregirlas mediante:
+
+```bash
+sudo apt --fix-broken install # solo si faltan dependencias
+```
+
+Si ya tenías instalado el temporizador y actualizas a una versión nueva, recarga la configuración de `systemd` y reinicia el servicio para aplicar inmediatamente los cambios:
+
 ```bash
 systemctl --user daemon-reload
 systemctl --user restart clima-lock.service
@@ -28,56 +40,112 @@ systemctl --user restart clima-lock.service
 
 ## Configuración
 
-**1. Tu ciudad** (solo el nombre, sin provincia):
+### 1. Configurar la ciudad
+
+Especifica únicamente el nombre de la ciudad, sin provincia:
+
 ```bash
 clima-lock --ciudad "Villanueva de la Serena"
 ```
 
-**2. Actualización automática:**
+### 2. Configurar la actualización automática
+
+Instala el temporizador con el intervalo predeterminado de **30 minutos**:
+
 ```bash
-clima-lock --install          # cada 30 min (por defecto)
-clima-lock --install 15       # cada 15 min
+clima-lock --install # cada 30 min (por defecto)
 ```
 
-**Desinstalar el temporizador:** ver la sección [Desinstalación](#desinstalación) más abajo.
+Para establecer un intervalo diferente, especifica los minutos. Por ejemplo, cada 15 minutos:
 
-**Probar manualmente** (imprime el mensaje y lo aplica ya):
+```bash
+clima-lock --install 15 # cada 15 min
+```
+
+Para eliminar el temporizador, consulta la sección [Desinstalación](#desinstalación).
+
+### 3. Ejecutar manualmente
+
+Para generar el mensaje, imprimirlo y aplicarlo inmediatamente:
+
 ```bash
 clima-lock
 ```
 
 ## Desinstalación
 
-**Quitar solo el temporizador** (deja el programa instalado, deja de actualizar el mensaje automáticamente):
+### Eliminar únicamente el temporizador
+
+Mantiene el programa instalado, pero desactiva las actualizaciones automáticas:
+
 ```bash
 clima-lock --uninstall
 ```
 
-**Quitar el paquete completo:**
+### Eliminar el paquete completo
+
 ```bash
 sudo apt remove clima-lock
 ```
 
-**Quitar el paquete y también tu configuración** (ciudad guardada en `~/.config/mint-weather-lock/`):
+### Eliminar el paquete y la configuración
+
+Esta opción también elimina la configuración almacenada, incluida la ciudad guardada en:
+
+```text
+~/.config/mint-weather-lock/
+```
+
+Ejecuta:
+
 ```bash
 sudo apt purge clima-lock
 rm -rf ~/.config/mint-weather-lock
 ```
 
-> Antes de desinstalar el paquete conviene ejecutar `clima-lock --uninstall` para que el temporizador no quede huérfano.
+Antes de desinstalar el paquete, se recomienda ejecutar:
 
-## Tipografía — importante
+```bash
+clima-lock --uninstall
+```
 
-El centrado y las columnas se calculan contando caracteres, así que **solo se ven bien con una fuente monoespaciada**. Con una fuente normal el texto queda descuadrado.
+Esto evita que el temporizador quede instalado de forma independiente o huérfana.
+
+## Tipografía y alineación
+
+> **Importante:** el centrado y la disposición de las columnas se calculan contando caracteres. Por este motivo, el mensaje debe mostrarse utilizando una **fuente monoespaciada**. Con una fuente proporcional, las columnas pueden quedar desalineadas.
+
+Instala la fuente Hack:
 
 ```bash
 sudo apt install fonts-hack
+```
+
+Configura Cinnamon para utilizarla en el mensaje de la pantalla de bloqueo:
+
+```bash
 gsettings set org.cinnamon.desktop.screensaver font-message "Hack 14"
 ```
 
-También funcionan bien `Ubuntu Mono`, `DejaVu Sans Mono` o `JetBrains Mono` (probablemente ya tienes alguna instalada — compruébalo con `fc-list :spacing=100 family`).
+También funcionan correctamente:
+
+- Ubuntu Mono
+- DejaVu Sans Mono
+- JetBrains Mono
+
+Para comprobar las fuentes monoespaciadas disponibles en el sistema:
+
+```bash
+fc-list :spacing=100 family
+```
 
 ## Notas
 
-- Si el campo "Mostrar este mensaje..." de Preferencias del sistema aparece vacío, es normal: el mensaje empieza con un carácter invisible de relleno. Comprueba el contenido real con `gsettings get org.cinnamon.desktop.screensaver default-message`.
-- Sin conexión a internet, el script deja el mensaje anterior sin tocar.
+- Si el campo **«Mostrar este mensaje...»** de las Preferencias del sistema aparece vacío, es normal. El mensaje comienza con un carácter invisible de relleno.
+- Para comprobar el contenido real configurado en Cinnamon:
+
+```bash
+gsettings get org.cinnamon.desktop.screensaver default-message
+```
+
+- Si no existe conexión a Internet, el script conserva el mensaje anterior y no modifica el contenido actualmente mostrado.
